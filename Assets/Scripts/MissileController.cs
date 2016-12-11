@@ -8,11 +8,14 @@ public class MissileController : MonoBehaviour {
     private Rigidbody rigidBody;
     private CapsuleCollider capsuleCollider;
     private AudioSource audioSource;
+    private ScoreController scoreController;
+    private AsteroidSpawner asteroidSpawner;
 
     private bool flying = true;
 
     ParticleSystem fire;
     ParticleSystem smoke;
+    ParticleSystem explosion;
 
     GameObject missle;
 
@@ -24,19 +27,23 @@ public class MissileController : MonoBehaviour {
     void Start()
     {
         player = GameObject.FindGameObjectWithTag("Player").GetComponent<Transform>();
+        asteroidSpawner = player.GetComponent<AsteroidSpawner>();
         capsuleCollider = GetComponent<CapsuleCollider>();
         audioSource = GetComponent<AudioSource>();
         rigidBody = GetComponent<Rigidbody>();
         fire = transform.FindChild("fire").GetComponent<ParticleSystem>();
         smoke = transform.FindChild("smoke").GetComponent<ParticleSystem>();
+        explosion = transform.FindChild("explosion").GetComponent<ParticleSystem>();
         missle = transform.FindChild("missile").gameObject;
+        scoreController = ScoreController.getInstance();
     }
 
     // Update is called once per frame
     void Update()
     {
-        if (Mathf.Abs(Vector3.Distance(player.position, transform.position)) > AsteroidSpawner.maxDistance)
+        if (Mathf.Abs(Vector3.Distance(player.position, transform.position)) > 500)
         {
+            audioSource.Stop();
             StartCoroutine("StopMissle");
         }
     }
@@ -49,28 +56,72 @@ public class MissileController : MonoBehaviour {
         rigidBody.AddRelativeForce(Vector3.forward * maxSpeed);
         rigidBody.velocity = Vector3.ClampMagnitude(rigidBody.velocity, maxSpeed);
     }
+
     void OnTriggerEnter(Collider other)
     {
         if (other.gameObject.CompareTag("Asteroid"))
         {
+            AddScore();
+            rigidBody.velocity = Vector3.zero;
             flying = false;
             capsuleCollider.enabled = false;
+            audioSource.loop = false;
             audioSource.clip = explosionSound;
             audioSource.Play();
+            explosion.Play();
+            SpawnChildAsteroids(other.gameObject);
             Destroy(other.gameObject);
             Explode();
             StartCoroutine("StopMissle");
         }
     }
 
+    private void SpawnChildAsteroids(GameObject asteroid)
+    {
+        AsteroidController asteroidController = asteroid.GetComponent<AsteroidController>();
+        int number = Random.Range(0, asteroidController.maxChildren);
+        for (int i = 0; i < number; i++)
+        {
+            asteroidSpawner.spawnChildAsteroid(asteroid.transform.position);
+        }
+    }
+
+    private void AddScore()
+    {
+        switch (ConfigManager.getInstance().difficulty)
+        {
+            case ConfigManager.Difficulty.Easy:
+                scoreController.addScore(1);
+                if (scoreController.getScore() % 25 == 0)
+                {
+                    player.GetComponent<ShieldController>().regenerateBarrier();
+                }
+                break;
+            case ConfigManager.Difficulty.Medium:
+                scoreController.addScore(2);
+                if (scoreController.getScore() % 100 == 0)
+                {
+                    player.GetComponent<ShieldController>().regenerateBarrier();
+                }
+                break;
+            case ConfigManager.Difficulty.Hard:
+                scoreController.addScore(3);
+                break;
+            default:
+                break;
+        }
+    }
+
     private IEnumerator StopMissle()
     {
         Destroy(missle);
-        audioSource.loop = false;
         fire.Stop();
         smoke.Stop();
+        yield return new WaitForSeconds(3);
+        explosion.Stop();
         yield return new WaitWhile(fire.IsAlive);
         yield return new WaitWhile(smoke.IsAlive);
+        yield return new WaitWhile(explosion.IsAlive);
         Destroy(gameObject);
     }
 
@@ -82,10 +133,11 @@ public class MissileController : MonoBehaviour {
         {
             if (hit.CompareTag("Player"))
                 continue;
-            Rigidbody rb = hit.GetComponent<Rigidbody>();
-
-            if (rb != null)
-                rb.AddExplosionForce(explosionPower, explosionPos, explosionRadius, 3.0F);
+            else if (hit.CompareTag("Asteroid"))
+            {
+                AsteroidController asteroidController = hit.GetComponent<AsteroidController>();
+                asteroidController.addExplosionForce(explosionPower, explosionPos, explosionRadius);
+            }
 
         }
     }

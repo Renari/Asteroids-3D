@@ -5,12 +5,16 @@ public class AsteroidController : MonoBehaviour {
 
     private Transform player;
     private Rigidbody rigidBody;
-    private const int speed = 250;
+    private int speed;
+    public float distanceFromPlayer;
+    public float distanceFromTarget;
+    private bool reachedTarget = false;
+    public int trackingAccuracy;
+    public int maxChildren;
+    public bool isChild;
 
     public float movementSpeed;
-
-    [HideInInspector]
-    public bool targeting = false;
+    
     [HideInInspector]
     private Vector3 targetedPosition;
 
@@ -18,34 +22,65 @@ public class AsteroidController : MonoBehaviour {
     void Start () {
         player = GameObject.FindGameObjectWithTag("Player").GetComponent<Transform>();
         rigidBody = GetComponent<Rigidbody>();
+
+        ConfigManager configManager = ConfigManager.getInstance();
+        trackingAccuracy = configManager.trackingAccuracy;
+        speed = configManager.asteroidMaxSpeed;
+
+        CalculateTargetLocation();
     }
     
     // Update is called once per frame
-    void Update () {
-        float distanceFromPlayer = Mathf.Abs(Vector3.Distance(player.position, transform.position));
+    void Update ()
+    {
+        distanceFromPlayer = Mathf.Abs(Vector3.Distance(player.position, transform.position));
         if (distanceFromPlayer > AsteroidSpawner.maxDistance)
         {
-            Destroy(this.gameObject);
+            if (isChild)
+            {
+                Destroy(transform.gameObject);
+                return;
+            }
+            CalculateTargetLocation();
+            reachedTarget = false;
         }
 
-        if (distanceFromPlayer > 250)
+        distanceFromTarget = Mathf.Abs(Vector3.Distance(targetedPosition, transform.position));
+        if (distanceFromTarget < 100f)
         {
-            targeting = false;
+            reachedTarget = true;
         }
     }
 
     void FixedUpdate () {
-        if (targeting)
+        if (!reachedTarget)
         {
-            Vector3 directionalForce = (targetedPosition - transform.position).normalized * speed;
-            rigidBody.AddRelativeForce(-directionalForce);
-            
+            Vector3 directionalForce = (targetedPosition - transform.position) * speed;
+            rigidBody.AddForce(directionalForce);
+            rigidBody.velocity = Vector3.ClampMagnitude(rigidBody.velocity, speed);
         }
-
     }
 
-    public void setTargetLocation(Vector3 location) {
-        targetedPosition = location;
-        targeting = true;
+    public void addExplosionForce(int explosionPower, Vector3 explosionPos, int explosionRadius)
+    {
+        // prevent culling on destroyed asteroids
+        if (rigidBody != null)
+        {
+            rigidBody.AddExplosionForce(explosionPower, explosionPos, explosionRadius, 3.0F);
+            reachedTarget = true;
+        }
+    }
+
+    void CalculateTargetLocation()
+    {
+        // calculate a random position around the player
+        float angle = Random.Range(0.0f, Mathf.PI * 2);
+        float height = Random.Range(-trackingAccuracy, trackingAccuracy);
+        Vector3 circle = new Vector3(Mathf.Sin(angle), 0, Mathf.Cos(angle));
+        circle *= trackingAccuracy;
+        circle += player.position;
+        circle.y += height;
+
+        targetedPosition = circle;
     }
 }

@@ -6,9 +6,10 @@ public class AsteroidSpawner : MonoBehaviour {
     public GameObject[] asteroids;
     public int maxAstroids;
     public int maxRotationSpeed;
+    public int minScale;
     public int maxScale;
 
-    public static int minDistance = 750;
+    public static int minDistance = 250;
     public static int maxDistance = 1000;
 
     private Transform player;
@@ -16,24 +17,30 @@ public class AsteroidSpawner : MonoBehaviour {
     // Use this for initialization
     void Start () {
         player = GameObject.FindGameObjectWithTag("Player").GetComponent<Transform>();
-        spawnAsteroid(maxAstroids, 20, maxDistance - 50);
+        spawnAsteroids(maxAstroids, maxDistance, maxDistance - 50);
     }
     
     // Update is called once per frame
     void Update () {
-        int numAsteroids = GameObject.FindGameObjectsWithTag("Asteroid").Length;
+        GameObject[] asteroids = GameObject.FindGameObjectsWithTag("Asteroid");
+        int numAsteroids = 0;
+        foreach (var asteroid in asteroids)
+        {
+            if(!asteroid.GetComponent<AsteroidController>().isChild)
+            {
+                numAsteroids++;
+            }
+        }
         if (numAsteroids < maxAstroids)
         {
-            spawnAsteroid(maxAstroids - numAsteroids, minDistance, maxDistance - 50);
+            spawnAsteroids(maxAstroids - numAsteroids, minDistance, maxDistance - 50);
         }
     }
 
-    private void spawnAsteroid(int number, int minRange, int maxRange)
+    public void spawnAsteroids(int number, int minRange, int maxRange)
     {
         for (int i = 0; i < number; i++)
         {
-            int index = Random.Range(0, asteroids.Length - 1);
-
             // calculate a random position around the player
             float angle = Random.Range(0.0f, Mathf.PI * 2);
             float height = Random.Range(-maxRange, maxRange);
@@ -42,15 +49,34 @@ public class AsteroidSpawner : MonoBehaviour {
             circle += player.position;
             circle.y += height;
 
-            GameObject asteroid = (GameObject)Instantiate(asteroids[index], circle, Random.rotation);
-
-            float xScale = Random.Range(1, maxScale);
-            float yScale = Random.Range(1, maxScale);
-            float zScale = Random.Range(1, maxScale);
-            asteroid.transform.localScale = new Vector3(xScale, yScale, zScale);
-
-            Vector3 spin = new Vector3(Random.Range(0, maxRotationSpeed), Random.Range(0, maxRotationSpeed), Random.Range(0, maxRotationSpeed));
-            asteroid.GetComponent<Rigidbody>().AddRelativeTorque(spin);
+            spawnAsteroidAtLocation(circle);
         }
+    }
+
+    public GameObject spawnAsteroidAtLocation(Vector3 location)
+    {
+        int index = Random.Range(0, asteroids.Length - 1);
+        GameObject asteroid = (GameObject)Instantiate(asteroids[index], location, Random.rotation);
+
+        float xScale = Random.Range(minScale, maxScale);
+        float yScale = Random.Range(minScale, maxScale);
+        float zScale = Random.Range(minScale, maxScale);
+        asteroid.transform.localScale = new Vector3(xScale, yScale, zScale);
+
+        Vector3 spin = new Vector3(Random.Range(0, maxRotationSpeed), Random.Range(0, maxRotationSpeed), Random.Range(0, maxRotationSpeed));
+        asteroid.GetComponent<Rigidbody>().AddRelativeTorque(spin);
+        return asteroid;
+    }
+
+    public void spawnChildAsteroid(Vector3 location)
+    {
+        GameObject asteroid = spawnAsteroidAtLocation(location);
+        AsteroidController asteroidController = asteroid.GetComponent<AsteroidController>();
+        asteroidController.maxChildren = 0;
+        asteroidController.isChild = true;
+        asteroid.transform.localScale = new Vector3(
+            asteroid.transform.localScale.x * .25f, 
+            asteroid.transform.localScale.y * .25f, 
+            asteroid.transform.localScale.z * .25f);
     }
 }
