@@ -2,6 +2,8 @@
 
 A simple game that takes the asteroids concept and implements it in a 3D environment.
 
+Devloped using Unity 5.4.1f1.
+
 ### Controls
 #### W or Up:
 Thrust
