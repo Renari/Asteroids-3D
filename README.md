@@ -35,7 +35,7 @@ Fire
 * Best asteroid tracking
 *	No extra lives
 
-###Assets Used:
+### Assets Used:
 #### Asteroids
 [https://www.assetstore.unity3d.com/en/#!/content/68611](https://www.assetstore.unity3d.com/en/#!/content/68611)
 #### Cockpit Image
